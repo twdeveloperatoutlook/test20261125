@@ -22,8 +22,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  deploy_staging:
     runs-on: windows-latest
+    environment: staging
+    outputs:
+      webapp-name: ${{ steps.target.outputs.webapp-name }}
+      resource-group: ${{ steps.target.outputs.resource-group }}
+      subscription-id: ${{ steps.target.outputs.subscription-id }}
     env:
       AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
       AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
@@ -38,6 +43,7 @@ jobs:
       - name: Install dependencies and run tests
         run: |
           python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
           python -m unittest discover -s tests
 
       - name: Package Windows Python app
@@ -68,14 +74,43 @@ jobs:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Verify Windows Web App
+        id: target
         shell: pwsh
         run: |
           $platform = az webapp show --resource-group $env:AZURE_RESOURCE_GROUP --name $env:AZURE_WEBAPP_NAME --query reserved --output tsv
           if ($LASTEXITCODE -ne 0) { throw 'Azure Web App lookup failed' }
           if ($platform.Trim().ToLowerInvariant() -ne 'false') { throw 'Target must be a Windows Azure Web App' }
+          $subscription = az account show --query id --output tsv
+          if ($LASTEXITCODE -ne 0 -or -not $subscription) { throw 'Azure subscription lookup failed' }
+          "webapp-name=$env:AZURE_WEBAPP_NAME" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "resource-group=$env:AZURE_RESOURCE_GROUP" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "subscription-id=$subscription" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
-      - name: Deploy to Azure Web App
+      - name: Deploy to Azure Web App staging slot
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          slot-name: staging
           package: dist
+
+  swap_production:
+    needs: deploy_staging
+    runs-on: windows-latest
+    environment: production
+    env:
+      AZURE_WEBAPP_NAME: ${{ needs.deploy_staging.outputs.webapp-name }}
+      AZURE_RESOURCE_GROUP: ${{ needs.deploy_staging.outputs.resource-group }}
+      AZURE_SUBSCRIPTION_ID: ${{ needs.deploy_staging.outputs.subscription-id }}
+    steps:
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Swap staging into production
+        shell: pwsh
+        run: |
+          az account set --subscription $env:AZURE_SUBSCRIPTION_ID
+          if ($LASTEXITCODE -ne 0) { throw 'Azure subscription selection failed' }
+          az webapp deployment slot swap --resource-group $env:AZURE_RESOURCE_GROUP --name $env:AZURE_WEBAPP_NAME --slot staging --target-slot production
+          if ($LASTEXITCODE -ne 0) { throw 'Azure Web App slot swap failed' }

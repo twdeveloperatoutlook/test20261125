@@ -1,0 +1,18 @@
+{
+    "servers": {
+        "azure-devops": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@azure-devops/mcp",
+                "___________________",
+                "--authentication",
+                "pat"
+            ],
+            "env": {
+                "PERSONAL_ACCESS_TOKEN": "_________________"
+            }
+        }
+    }
+}
