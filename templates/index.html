@@ -35,6 +35,24 @@
 
               <form method="post" action="{{ url_for('index') }}" novalidate>
                 <div class="form-fields">
+                  <div class="field field-name">
+                    <label for="name">姓名（選填） <span>NAME</span></label>
+                    <div class="input-wrap">
+                      <input id="name" name="name" type="text" autocomplete="name" placeholder="請輸入姓名" value="{{ name_input }}">
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label for="gender">性別（選填） <span>GENDER</span></label>
+                    <div class="input-wrap">
+                      <select id="gender" name="gender">
+                        <option value="" {% if not gender_input %}selected{% endif %}>請選擇</option>
+                        <option value="male" {% if gender_input == "male" %}selected{% endif %}>男性</option>
+                        <option value="female" {% if gender_input == "female" %}selected{% endif %}>女性</option>
+                        <option value="other" {% if gender_input == "other" %}selected{% endif %}>其他</option>
+                        <option value="prefer_not_to_say" {% if gender_input == "prefer_not_to_say" %}selected{% endif %}>不願透露</option>
+                      </select>
+                    </div>
+                  </div>
                   <div class="field">
                     <label for="height">身高 <span>HEIGHT</span></label>
                     <div class="input-wrap">
@@ -68,7 +86,7 @@
                 <div class="result-divider"></div>
                 <span class="result-label">你的體位屬於 <strong>{{ result.label }}</strong></span>
                 <h2 id="result-title">給你的健康建議</h2>
-                <p>{{ result.advice }}</p>
+                <p>{% if name_input %}{{ name_input }}，{% endif %}{{ result.advice }}</p>
                 <span class="result-decoration" aria-hidden="true">✳</span>
               </section>
             {% else %}

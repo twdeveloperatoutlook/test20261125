@@ -41,12 +41,18 @@ def parse_positive_number(value):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    name_input = ""
+    gender_input = ""
     height_input = ""
     weight_input = ""
     errors = {}
     result = None
 
     if request.method == "POST":
+        name_input = request.form.get("name", "").strip()
+        gender_input = request.form.get("gender", "")
+        if gender_input not in {"male", "female", "other", "prefer_not_to_say"}:
+            gender_input = ""
         height_input = request.form.get("height", "").strip()
         weight_input = request.form.get("weight", "").strip()
         height = parse_positive_number(height_input)
@@ -72,6 +78,8 @@ def index():
 
     return render_template(
         "index.html",
+        name_input=name_input,
+        gender_input=gender_input,
         height_input=height_input,
         weight_input=weight_input,
         errors=errors,

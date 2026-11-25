@@ -20,6 +20,45 @@ class BmiAppTests(unittest.TestCase):
         self.assertIn("22.5", page)
         self.assertIn("健康體位", page)
         self.assertIn("維持均衡飲食", page)
+        self.assertIn("<p>維持均衡飲食", page)
+
+    def test_name_is_included_in_advice(self):
+        response = self.client.post("/", data={"name": "  小明  ", "height": "170", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn('name="name"', page)
+        self.assertIn('value="小明"', page)
+        self.assertIn("<p>小明，維持均衡飲食", page)
+
+    def test_name_is_preserved_when_measurements_are_invalid(self):
+        response = self.client.post("/", data={"name": "小明", "height": "", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn('value="小明"', page)
+        self.assertIn('aria-invalid="true"', page)
+
+    def test_gender_dropdown_is_next_to_name_and_selection_is_preserved(self):
+        response = self.client.post("/", data={"name": "小明", "gender": "female", "height": "", "weight": "65"})
+        page = response.get_data(as_text=True)
+        name_position = page.index('id="name"')
+        gender_position = page.index('id="gender"')
+        self.assertLess(name_position, gender_position)
+        self.assertIn('<option value="female" selected>女性</option>', page)
+
+    def test_invalid_gender_is_not_preserved(self):
+        response = self.client.post("/", data={"gender": "<script>", "height": "", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn('<option value="" selected>請選擇</option>', page)
+        self.assertNotIn("<script>", page)
+
+    def test_name_is_escaped_in_form_and_advice(self):
+        response = self.client.post("/", data={"name": '<script>alert("x")</script>', "height": "170", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertNotIn("<script>", page)
+        self.assertIn('&lt;script&gt;alert(&#34;x&#34;)&lt;/script&gt;，維持均衡飲食', page)
+
+    def test_blank_name_does_not_change_advice(self):
+        response = self.client.post("/", data={"name": "   ", "height": "170", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn("<p>維持均衡飲食", page)
 
     def test_taiwan_adult_thresholds(self):
         for bmi, category in [
