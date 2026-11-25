@@ -20,6 +20,31 @@ class BmiAppTests(unittest.TestCase):
         self.assertIn("22.5", page)
         self.assertIn("健康體位", page)
         self.assertIn("維持均衡飲食", page)
+        self.assertIn("<p>維持均衡飲食", page)
+
+    def test_name_is_included_in_advice(self):
+        response = self.client.post("/", data={"name": "  小明  ", "height": "170", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn('name="name"', page)
+        self.assertIn('value="小明"', page)
+        self.assertIn("<p>小明，維持均衡飲食", page)
+
+    def test_name_is_preserved_when_measurements_are_invalid(self):
+        response = self.client.post("/", data={"name": "小明", "height": "", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn('value="小明"', page)
+        self.assertIn('aria-invalid="true"', page)
+
+    def test_name_is_escaped_in_form_and_advice(self):
+        response = self.client.post("/", data={"name": '<script>alert("x")</script>', "height": "170", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertNotIn("<script>", page)
+        self.assertIn('&lt;script&gt;alert(&#34;x&#34;)&lt;/script&gt;，維持均衡飲食', page)
+
+    def test_blank_name_does_not_change_advice(self):
+        response = self.client.post("/", data={"name": "   ", "height": "170", "weight": "65"})
+        page = response.get_data(as_text=True)
+        self.assertIn("<p>維持均衡飲食", page)
 
     def test_taiwan_adult_thresholds(self):
         for bmi, category in [
